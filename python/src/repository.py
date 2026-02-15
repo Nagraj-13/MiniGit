@@ -97,7 +97,7 @@ class Repository:
         full_path = self.path / path
         
         if not full_path.exists():
-             raise FileNotFoundError(f"File {path} not found")\
+             raise FileNotFoundError(f"File {path} not found")
                  
         if not full_path.is_dir():
             raise ValueError(f"{path} is not a directory")
