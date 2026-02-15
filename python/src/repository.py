@@ -53,7 +53,9 @@ class Repository:
         obj_file = obj_directory / obj_hash[2:]
         
         if not obj_directory.exists():
-            obj_directory.mkdir(exist_ok=True)
+            obj_directory.mkdir(parents=True, exist_ok=True)
+
+        if not obj_file.exists():
             obj_file.write_bytes(obj.serialize())
 
         return obj_hash

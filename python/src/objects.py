@@ -24,9 +24,9 @@ class MiniGitObjects:
         null_idx = decompressed.find(b"\0")
         header = decompressed[:null_idx]
         content = decompressed[null_idx+1:]
-        obj_type, size = header.split(" ")
+        obj_type, size = header.split(b" ")
         
-        return cls(obj_type, content)
+        return cls(obj_type.decode(), content)
     
     
 class Blob(MiniGitObjects):
