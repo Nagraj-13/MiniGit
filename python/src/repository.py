@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Dict
-from src.objects import Blob, MiniGitObjects
+from src.objects import Blob, Commit, MiniGitObjects, Tree
 
 class Repository:
     def __init__(self, path="."):
@@ -71,6 +71,22 @@ class Repository:
     
     def save_index(self, index: Dict[str, str]):
         self.index_file.write_text(json.dumps(index, indent=4))
+        
+    def load_object(self, obj_hash:str)-> MiniGitObjects:
+        obj_dir = self.objects_dir / obj_hash[:2]
+        obj_file = obj_dir/obj_hash[2:]
+        
+        if not obj_file.exists():
+            raise FileNotFoundError(f"Object {obj_hash} not found")
+        
+        obj = MiniGitObjects.de_serialize(obj_file.read_bytes())
+        if obj.type == "blob":
+            return Blob(obj.content)
+        elif obj.type == "tree":
+            return Tree.from_content(obj.content)
+        elif obj.type == "commit":
+            return Commit.from_content(obj.content)
+    
     
     def add_file(self, path:str):
         # Read file content 
@@ -138,4 +154,102 @@ class Repository:
         else:
             raise ValueError(f"{path} is neither a file nor a directory")
         
+    def create_tree_from_index(self):
+        index = self.load_index()
+        if not index:
+            tree = Tree()
+            return self.store_object(tree)
+        
+        dirs = {}
+        files = {}
+        for file_path, blob_hash in index.items():
+            parts = file_path.split("/")
+            
+            if len(parts) == 1:
+                files[parts[0]] = blob_hash
+                
+            else:
+                dir_name = parts[0]
+                if dir_name  not in dirs:
+                    dirs[dir_name] = {}
+                    
+                current = dirs[dir_name]
+                
+                for part in parts[1:-1]:
+                    if part not in current:
+                        current[part] = {}
+                    
+                    current = current[part]
+                current[parts[-1]] =blob_hash
+        
+        def create_tree_recursively(entries_dict:Dict):
+            tree = Tree()
+            for name, blob_hash in entries_dict.items():
+                if isinstance(blob_hash, str):
+                    tree.add_entry("100644",name,blob_hash)
+                    
+                if isinstance(blob_hash, dict):
+                    subtree_hash = create_tree_recursively(blob_hash)
+                    tree.add_entry("40000",name, subtree_hash)
+                    
+            return self.store_object(tree)
+               
+        root_entries = {**files}
+        
+        for dir_name, dir_content in dirs.items():
+            root_entries[dir_name] = dir_content
+        
+        return create_tree_recursively(root_entries)
     
+    def get_current_branch(self)->str:
+        if not self.head_file.exists():
+            return "master"
+        head_content = self.head_file.read_text().strip()
+        if head_content.startswith("ref: refs/heads/"):
+            return head_content[16:]
+        return "HEAD" # detached HEAD mostly pointing to a commit
+    
+    def get_branch_commit(self, current_branch:str):
+        branch_file  = self.heads_dir / current_branch
+        if branch_file.exists():
+            return branch_file.read_text().strip()
+        
+        return None
+    
+    def set_branch_commit(self, current_branch:str, commit_hash:str):
+        branch_file  = self.heads_dir / current_branch
+        branch_file.write_text(commit_hash + "\n")
+            
+    def commit(self, message:str, author: str = "MiniGit user <user@minigit>"):
+        #create a tree object from the index (staging area)
+        tree_hash = self.create_tree_from_index()
+        
+        current_branch = self.get_current_branch()
+        parent_commit = self.get_branch_commit(current_branch)
+        parent_hashes = [parent_commit] if parent_commit else []
+        
+        index = self.load_index()
+        if not index:
+            print("Nothing to commit, working tree is clean")
+            return None
+        
+        if parent_commit:
+            parent_git_commit_obj = self.load_object(parent_commit)
+            parent_commit_data = Commit.from_content(parent_git_commit_obj.content)
+            if tree_hash  == parent_commit_data.tree_hash:
+                print(f"Nothing to commit, working tree clean")
+                return None
+        
+        commit = Commit(
+            tree_hash=tree_hash,
+            parent_hashes=parent_hashes,
+            author=author,
+            committer=author,
+            message=message
+        )
+        commit_hash = self.store_object(commit)
+        self.set_branch_commit(current_branch, commit_hash)
+        # self.save_index({})
+        
+        print(f"Created commit {commit_hash} on branch {current_branch}")
+        return commit_hash
