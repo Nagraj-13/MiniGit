@@ -30,7 +30,20 @@ def main():
         help="Author Name and email" , 
     )
     
-    
+    checkout_parser = subparser.add_parser(
+        'checkout',
+        help="Create or Switch to branch"
+    )
+    checkout_parser.add_argument(
+        "branch",
+        help="Branch to switch to"
+    )
+    checkout_parser.add_argument(
+        "-b", 
+        "--create-branch", 
+        action="store_true", 
+        help="create or switch to a new branch"
+    )
     
     args = parser.parse_args()
     if not args.command:
@@ -56,6 +69,11 @@ def main():
                 return
             author = args.author or "MiniGit user <user@minigit>"
             repo.commit(args.message, author)
+        elif args.command == "checkout":
+            if not repo.git_dir.exists():
+                print("Not a minigit repository")
+                return
+            repo.checkout(args.branch, args.create_branch)
             
     except Exception as e:
         print(f"Error : {e}")
