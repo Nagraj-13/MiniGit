@@ -44,6 +44,21 @@ def main():
         action="store_true", 
         help="create or switch to a new branch"
     )
+    branch_parser = subparser.add_parser(
+        "branch",
+        help="List or manage the Branches"
+    )
+    branch_parser.add_argument(
+        "name",
+        nargs="?" 
+    )
+    
+    branch_parser.add_argument(
+        "-d",
+        "--delete-branch",
+        action="store_true",
+        help="Delete a branch"
+    )
     
     args = parser.parse_args()
     if not args.command:
@@ -74,7 +89,9 @@ def main():
                 print("Not a minigit repository")
                 return
             repo.checkout(args.branch, args.create_branch)
-            
+        elif args.command == "branch":
+            repo.branch(args.name, args.delete_branch)
+          
     except Exception as e:
         print(f"Error : {e}")
         sys.exit(1)
