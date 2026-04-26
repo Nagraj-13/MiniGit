@@ -71,6 +71,10 @@ def main():
         help="Limit commit shown"
     )
     
+    #status command 
+    status_parser = subparser.add_parser("status", help="Show Repository status")
+    
+    
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -95,22 +99,34 @@ def main():
                 return
             author = args.author or "MiniGit user <user@minigit>"
             repo.commit(args.message, author)
+            
         elif args.command == "checkout":
             if not repo.git_dir.exists():
                 print("Not a minigit repository")
                 return
             repo.checkout(args.branch, args.create_branch)
+            
         elif args.command == "branch":
             repo.branch(args.name, args.delete_branch)
+            
         elif args.command == "log":
             if not repo.git_dir.exists():
                 print("Not a minigit repository")
+                return
             repo.log(args.max_count)
-          
+            
+        elif args.command == "status":
+            if not repo.git_dir.exists():
+                print("Not a minigit repository")
+                return
+            repo.status()
+            
     except Exception as e:
         print(f"Error : {e}")
         sys.exit(1)
     
+    # fhdkjfhsd
+    #frrfgfr
     
 main()
 

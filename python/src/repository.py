@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from src.objects import Blob, Commit, MiniGitObjects, Tree
 import time
 
@@ -71,7 +71,7 @@ class Repository:
             return {}
     
     def save_index(self, index: Dict[str, str]):
-        self.index_file.write_text(json.dumps(index, indent=4))
+        self.index_file.write_text(json.dumps(index, indent=2))
         
     def load_object(self, obj_hash:str)-> MiniGitObjects:
         obj_dir = self.objects_dir / obj_hash[:2]
@@ -80,13 +80,8 @@ class Repository:
         if not obj_file.exists():
             raise FileNotFoundError(f"Object {obj_hash} not found")
         
-        obj = MiniGitObjects.de_serialize(obj_file.read_bytes())
-        if obj.type == "blob":
-            return Blob(obj.content)
-        elif obj.type == "tree":
-            return Tree.from_content(obj.content)
-        elif obj.type == "commit":
-            return Commit.from_content(obj.content)
+        return MiniGitObjects.de_serialize(obj_file.read_bytes())
+
     
     
     def add_file(self, path:str):
@@ -396,5 +391,115 @@ class Repository:
 
             commit_hash = commit.parent_hashes[0] if commit.parent_hashes else None
             count+=1
-
+    
+    def build_index_from_tree(self, tree_hash:str, prefix:str=""):
+        index = {}
+        try:
+            tree_obj = self.load_object(tree_hash)
+            tree =  Tree.from_content(tree_obj.content)
+            #tree = list<tuple<str,str, str>>    <mode> <name>\0<hash>
+            for mode, name, obj_hash in tree.entries:
+                full_name = f"{prefix}{name}" 
+                if mode.startswith('100'):
+                    index[full_name]= obj_hash
+                elif mode.startswith("400"):
+                    sub_index = self.build_index_from_tree(
+                        obj_hash, f"{full_name}/"
+                    )
+                    
+                    index.update(sub_index)
+                    
+        except Exception as e:
+            print(f"Warning could not read tree {tree_hash}: {e}")
+            
+        return index
+    
+    def get_all_files(self) -> List[Path]:
+        files = []
+        for item in self.path.rglob("*"):
+            if ".minigit" in item.parts:
+                continue
+            if item.is_file():
+                files.append(item)
+        return files
+                
+    def status(self):
+        current_branch  = self.get_current_branch()
+        print(f"On branch {current_branch}")
         
+        index = self.load_index()
+        current_commit_hash = self.get_branch_commit(current_branch)
+        
+        last_index_files = {}
+        
+        if current_commit_hash:
+            try:
+                commit_obj = self.load_object(current_commit_hash)
+                commit = Commit.from_content(commit_obj.content)
+                if commit.tree_hash:
+                    last_index_files = self.build_index_from_tree(commit.tree_hash)
+                    
+            except:
+                last_index_files = {}
+        
+        working_files ={}
+        for item in self.get_all_files():
+            rel_path = str(item.relative_to(self.path))
+            try:
+                content = item.read_bytes()
+                blob = Blob(content)
+                working_files[rel_path] = blob.hash()
+                
+            except:
+                continue      
+        staged_files = []
+        unstaged_files = []
+        untracked_files = []
+        deleted_files = []
+     
+        for file_path in set(index.keys()) | set(last_index_files.keys()):
+            index_hash = index.get(file_path)
+            last_index_hash = last_index_files.get(file_path)
+            
+            if index_hash and not last_index_hash:
+                staged_files.append(("new file", file_path))
+            elif not index_hash and last_index_hash and index_hash != last_index_hash:
+                staged_files.append(("modifed file", file_path)) 
+            # elif not index_hash and last_index_hash:
+            #     staged_files.append(("deleted file", file_path))
+            
+        if staged_files:
+            print("\n Changes to be commited: ")
+            for staged_status, file_path in sorted(staged_files):
+                print(f"    {staged_status}: {file_path}")
+        
+        for file_path in working_files:
+            if file_path in index:
+                if working_files[file_path] != index[file_path]:
+                    unstaged_files.append(file_path)
+        
+        if unstaged_files:
+            print("\nChanges not staged for commit:")
+            for file_path in sorted(unstaged_files):
+                print(f"   modified: {file_path}")
+                
+        for file_path in working_files:
+            if file_path not in index and file_path not in last_index_files:
+                untracked_files.append(file_path)
+                
+        if untracked_files:
+            print("\nUntracked files:")
+            for file_path in sorted(untracked_files):
+                print(f"   untracked: {file_path}")
+                
+        for file_path in index:
+           if file_path not in working_files:
+               deleted_files.append(file_path)
+               
+        if deleted_files:
+            print("\nDeleted files:")
+            for file_path in sorted(deleted_files):
+                print(f"    Deleted file: {file_path}")         
+        
+        if not staged_files and not unstaged_files and not deleted_files and not untracked_files:
+            print("\n Nothing to commit working tree clean")

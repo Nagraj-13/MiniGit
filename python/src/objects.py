@@ -113,7 +113,7 @@ class Commit(MiniGitObjects):
         return "\n".join(lines).encode()
     
     @classmethod
-    def from_content(cls, content) -> Commit:
+    def from_content(cls, content:bytes) -> Commit:
         lines = content.decode().split("\n")
         tree_hash = None
         parent_hashes = []
