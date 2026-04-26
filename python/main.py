@@ -59,6 +59,17 @@ def main():
         action="store_true",
         help="Delete a branch"
     )
+    log_parser = subparser.add_parser(
+        "log",
+        help="Show commit history"
+    )
+    log_parser.add_argument(
+        "-n",
+        "--max-count",
+        type=int,
+        default=10,
+        help="Limit commit shown"
+    )
     
     args = parser.parse_args()
     if not args.command:
@@ -91,6 +102,10 @@ def main():
             repo.checkout(args.branch, args.create_branch)
         elif args.command == "branch":
             repo.branch(args.name, args.delete_branch)
+        elif args.command == "log":
+            if not repo.git_dir.exists():
+                print("Not a minigit repository")
+            repo.log(args.max_count)
           
     except Exception as e:
         print(f"Error : {e}")

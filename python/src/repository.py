@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 from src.objects import Blob, Commit, MiniGitObjects, Tree
+import time
 
 class Repository:
     def __init__(self, path="."):
@@ -375,3 +376,25 @@ class Repository:
             for branch in sorted(branches):
                 current_marker = "* " if branch ==  current_branch else " "
                 print(f"{current_marker}{branch}")                
+    
+    def log(self, max_count:int=10):
+        current_branch = self.get_current_branch()
+        
+        commit_hash = self.get_branch_commit(current_branch)
+        if not commit_hash:
+            print("No commits yet")
+            return
+        count = 0
+        while commit_hash and count < max_count:
+            commit_obj = self.load_object(commit_hash)
+            commit = Commit.from_content(commit_obj.content)
+
+            print(f"Commit {commit_hash}")
+            print(f"Authon: {commit.author}")
+            print(f"Date: {time.ctime(commit.timestamp)}")
+            print(f"\nMessage {commit.message}\n")
+
+            commit_hash = commit.parent_hashes[0] if commit.parent_hashes else None
+            count+=1
+
+        
