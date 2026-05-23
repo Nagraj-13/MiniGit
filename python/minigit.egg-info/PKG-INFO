@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: minigit
+Version: 1.0.0
+Summary: A simplified Git clone built from scratch for learning
+Author: Nagaraj
+License: MIT
+Keywords: git,version-control,educational
+Requires-Python: >=3.10

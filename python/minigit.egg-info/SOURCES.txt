@@ -1,0 +1,13 @@
+main.py
+pyproject.toml
+minigit.egg-info/PKG-INFO
+minigit.egg-info/SOURCES.txt
+minigit.egg-info/dependency_links.txt
+minigit.egg-info/entry_points.txt
+minigit.egg-info/top_level.txt
+src/__init__.py
+src/branch_manager.py
+src/index_manager.py
+src/object_store.py
+src/objects.py
+src/repository.py
