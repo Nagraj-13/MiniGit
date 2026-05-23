@@ -121,6 +121,7 @@ class Commit(MiniGitObjects):
         committer = None
         message_start = 0
         
+        timestamp = None
         for i, line in enumerate(lines):
             if line.startswith("tree "):
                 tree_hash = line[5:]
@@ -128,15 +129,19 @@ class Commit(MiniGitObjects):
                 parent_hashes.append(line[7:])
             elif line.startswith("author "):
                 author_parts = line[7:].rsplit(" ", 2)
-                author = author_parts[0]
-                timestamp = int(author_parts[1])
+                author = author_parts[0] if len(author_parts) >= 1 else "Unknown"
+                if len(author_parts) >= 2:
+                    try:
+                        timestamp = int(author_parts[1])
+                    except ValueError:
+                        timestamp = None
             elif line.startswith("committer "):
                 committer_parts = line[10:].rsplit(" ", 2)
-                committer = committer_parts[0]
+                committer = committer_parts[0] if len(committer_parts) >= 1 else "Unknown"
             elif line == "":
                 message_start = i + 1
                 break
             
         message = "\n".join(lines[message_start:])
-        commit  = cls(tree_hash, parent_hashes,author,committer,message, timestamp)
+        commit  = cls(tree_hash, parent_hashes, author, committer, message, timestamp)
         return commit

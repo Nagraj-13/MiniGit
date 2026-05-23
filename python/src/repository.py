@@ -67,7 +67,7 @@ class Repository:
         try:
             return json.loads(self.index_file.read_text())
         
-        except:
+        except Exception:
             return {}
     
     def save_index(self, index: Dict[str, str]):
@@ -127,9 +127,10 @@ class Repository:
                 content = file_path.read_bytes()
                 blob = Blob(content)
                 blob_hash = self.store_object(blob)
-                relative_path = str(file_path.relative_to(self.path))
-                index[relative_path] = blob_hash
-                added_count += 1
+                relative_path = file_path.relative_to(self.path).as_posix()
+                if index.get(relative_path) != blob_hash:
+                    index[relative_path] = blob_hash
+                    added_count += 1
                 
         self.save_index(index)       
         if added_count > 0:
@@ -264,7 +265,6 @@ class Repository:
         )
         commit_hash = self.store_object(commit)
         self.set_branch_commit(current_branch, commit_hash)
-        self.save_index({})
         
         print(f"Created commit {commit_hash} on branch {current_branch}")
         return commit_hash
@@ -273,6 +273,7 @@ class Repository:
     def checkout(self, branch:str, create_branch:bool):
         previous_branch = self.get_current_branch()
         file_to_clear = set()
+        previous_commit_hash = None
         try:
             previous_commit_hash = self.get_branch_commit(previous_branch)
             if previous_commit_hash:
@@ -342,7 +343,12 @@ class Repository:
         target_commit = Commit.from_content(target_commit_object.content)
         if target_commit.tree_hash:
             self.restore_tree(target_commit.tree_hash, self.path)
-        self.save_index({})
+        # Rebuild index from the target branch's tree
+        if target_commit.tree_hash:
+            new_index = self.build_index_from_tree(target_commit.tree_hash)
+            self.save_index(new_index)
+        else:
+            self.save_index({})
         
     def branch(self, branch_name:str, delete:bool=False):
         if delete and branch_name:
@@ -385,7 +391,7 @@ class Repository:
             commit = Commit.from_content(commit_obj.content)
 
             print(f"Commit {commit_hash}")
-            print(f"Authon: {commit.author}")
+            print(f"Author: {commit.author}")
             print(f"Date: {time.ctime(commit.timestamp)}")
             print(f"\nMessage {commit.message}\n")
 
@@ -439,18 +445,18 @@ class Repository:
                 if commit.tree_hash:
                     last_index_files = self.build_index_from_tree(commit.tree_hash)
                     
-            except:
+            except Exception:
                 last_index_files = {}
         
         working_files ={}
         for item in self.get_all_files():
-            rel_path = str(item.relative_to(self.path))
+            rel_path = item.relative_to(self.path).as_posix()
             try:
                 content = item.read_bytes()
                 blob = Blob(content)
                 working_files[rel_path] = blob.hash()
                 
-            except:
+            except Exception:
                 continue      
         staged_files = []
         unstaged_files = []
@@ -463,8 +469,10 @@ class Repository:
             
             if index_hash and not last_index_hash:
                 staged_files.append(("new file", file_path))
-            elif not index_hash and last_index_hash and index_hash != last_index_hash:
-                staged_files.append(("modifed file", file_path)) 
+            elif index_hash and last_index_hash and index_hash != last_index_hash:
+                staged_files.append(("modified", file_path))
+            elif not index_hash and last_index_hash:
+                staged_files.append(("deleted", file_path)) 
             # elif not index_hash and last_index_hash:
             #     staged_files.append(("deleted file", file_path))
             

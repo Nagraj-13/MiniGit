@@ -107,6 +107,9 @@ def main():
             repo.checkout(args.branch, args.create_branch)
             
         elif args.command == "branch":
+            if not repo.git_dir.exists():
+                print("Not a minigit repository")
+                return
             repo.branch(args.name, args.delete_branch)
             
         elif args.command == "log":
@@ -125,8 +128,6 @@ def main():
         print(f"Error : {e}")
         sys.exit(1)
     
-    # fhdkjfhsd
-    #frrfgfr
-    
-main()
+if __name__ == "__main__":
+    main()
 
