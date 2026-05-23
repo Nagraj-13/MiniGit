@@ -21,22 +21,23 @@ At its core, Git is a directed acyclic graph (DAG) of objects stored on disk. He
 
 ```mermaid
 graph TD
-    subgraph Working Directory
-        A[Files & Folders] -->|.minigitignore| B[Staging Area / Index]
+
+    subgraph WD["Working Directory"]
+        A["Files & Folders"] -->|.minigitignore| B["Staging Area / Index"]
     end
-    
-    subgraph MiniGit Internal (.minigit/)
-        B -->|commit| C[Commit Object]
-        C -->|points to| D[Tree Object]
-        D -->|references| E[Blob Object]
-        D -->|references| F[Subtree Object]
-        
-        G[HEAD] -->|points to current| H[Branch Ref: refs/heads/master]
+
+    subgraph MG["MiniGit Internal (.minigit/)"]
+        B -->|commit| C["Commit Object"]
+        C -->|points to| D["Tree Object"]
+        D -->|references| E["Blob Object"]
+        D -->|references| F["Subtree Object"]
+
+        G["HEAD"] -->|points to current| H["Branch Ref: refs/heads/master"]
         H -->|points to latest| C
     end
-    
-    style Working Directory fill:#1a1a2e,stroke:#162447,stroke-width:2px,color:#fff
-    style MiniGit Internal fill:#1b1a17,stroke:#ff8303,stroke-width:2px,color:#fff
+
+    style WD fill:#1a1a2e,stroke:#162447,stroke-width:2px,color:#fff
+    style MG fill:#1b1a17,stroke:#ff8303,stroke-width:2px,color:#fff
 ```
 
 Each component has a specific responsibility:
@@ -104,7 +105,12 @@ Git stores everything inside its object database. There are three primary object
 3. **Commit**: Stores metadata about a snapshot, including author, date, message, parent commits, and a reference to a root Tree object.
 
 All objects in Git share a unified serialization format:
-$$\text{compressed\_data} = \text{zlib}(\text{type} + \text{" "} + \text{size} + \text{"\backslash 0"} + \text{content})$$
+
+```math
+compressed\_data =
+\operatorname{zlib}(type + " " + size + "\\0" + content)
+```
+
 
 ### Feature
 A set of data classes representing Blobs, Trees, and Commits with serialization/deserialization logic.
